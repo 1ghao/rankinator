@@ -9,30 +9,32 @@ const toGlickoPlayer = (item: RankedItem): GlickoPlayer => {
   };
 };
 
-export const updateRatings = (
-  winner: RankedItem,
-  loser: RankedItem
-): { winner: RankedItem; loser: RankedItem } => {
-  const winnerPlayer = toGlickoPlayer(winner);
-  const loserPlayer = toGlickoPlayer(loser);
+export const processMatch = (
+  item1: RankedItem,
+  item2: RankedItem,
+  result: 0 | 0.5 | 1
+): { item1: RankedItem; item2: RankedItem } => {
+  const player1 = toGlickoPlayer(item1);
+  const player2 = toGlickoPlayer(item2);
 
-  const newWinnerStats = calculateNewStats(winnerPlayer, loserPlayer, 1);
-  const newLoserStats = calculateNewStats(loserPlayer, winnerPlayer, 0);
+  const newStats1 = calculateNewStats(player1, player2, result);
+  const score2 = result === 0.5 ? 0.5 : result === 1 ? 0 : 1;
+  const newStats2 = calculateNewStats(player2, player1, score2);
 
   return {
-    winner: {
-      ...winner,
-      rating: newWinnerStats.rating,
-      rd: newWinnerStats.rd,
-      vol: newWinnerStats.vol,
-      matches: winner.matches + 1,
+    item1: {
+      ...item1,
+      rating: newStats1.rating,
+      rd: newStats1.rd,
+      vol: newStats1.vol,
+      matches: item1.matches + 1,
     },
-    loser: {
-      ...loser,
-      rating: newLoserStats.rating,
-      rd: newLoserStats.rd,
-      vol: newLoserStats.vol,
-      matches: loser.matches + 1,
+    item2: {
+      ...item2,
+      rating: newStats2.rating,
+      rd: newStats2.rd,
+      vol: newStats2.vol,
+      matches: item2.matches + 1,
     },
   };
 };

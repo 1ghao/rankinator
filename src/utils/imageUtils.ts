@@ -1,38 +1,42 @@
-export const compressImages = (file: File): Promise<string> => {
+export const cropAndCompressImages = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
+
     reader.onload = (event) => {
       const img = new Image();
       img.src = event.target?.result as string;
 
       img.onload = () => {
-        const MAX_WIDTH = 300;
-        const MAX_HEIGHT = 300;
+        const size = Math.min(img.width, img.height);
 
-        let width = img.width;
-        let height = img.height;
+        const startX = (img.width - size) / 2;
+        const startY = (img.height - size) / 2;
 
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
+        const CANVAS_SIZE = 300;
         const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = CANVAS_SIZE;
+        canvas.height = CANVAS_SIZE;
 
         const ctx = canvas.getContext("2d");
-        ctx?.drawImage(img, 0, 0, width, height);
+        if (!ctx) {
+          reject(new Error("Could not get canvas context"));
+          return;
+        }
 
-        resolve(canvas.toDataURL("image/jpeg", 0.7));
+        ctx?.drawImage(
+          img,
+          startX,
+          startY,
+          size,
+          size,
+          0,
+          0,
+          CANVAS_SIZE,
+          CANVAS_SIZE
+        );
+
+        resolve(canvas.toDataURL("image/jpeg", 0.8));
       };
 
       img.onerror = (err) => reject(err);

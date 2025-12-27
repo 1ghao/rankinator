@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import type { RankedItem } from "./types";
 import { processMatch } from "./utils/rankingSystem";
 import { getNextMatchup } from "./utils/matchmaking";
-import { compressImages } from "./utils/imageUtils";
+import { cropAndCompressImages } from "./utils/imageUtils";
 
 // ---- shared hooks ----
 function useLocalStorageState<T>(key: string, initialValue: T) {
@@ -300,7 +300,7 @@ function InputSection({
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       try {
-        const compressed = await compressImages(e.target.files[0]);
+        const compressed = await cropAndCompressImages(e.target.files[0]);
         onImageChange(compressed);
       } catch (err) {
         console.error("Image processing failed", err);
@@ -480,10 +480,11 @@ function VotingSection({
       {item.image ? (
         <div
           style={{
-            width: "100%",
-            height: "140px",
+            width: "120px",
+            height: "120px",
             marginBottom: "1rem",
-            borderRadius: "12px",
+            borderRadius: "50%",
+            border: "4px solid rgba(255, 255, 255, 0.1)",
             background: `url(${item.image}) center center / cover no-repeat`,
             boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)",
           }}

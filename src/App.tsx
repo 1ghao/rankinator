@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDropzone } from "react-dropzone";
+import { motion, AnimatePresence } from "framer-motion";
 import { v4 as uuidv4 } from "uuid";
 import type { RankedItem } from "./types";
 import { processMatch } from "./utils/rankingSystem";
@@ -655,61 +656,66 @@ function Leaderboard({ items, onDelete }: LeaderboardProps) {
   return (
     <section>
       <h2 style={sectionTitleStyle}>Leaderboard</h2>
-      <ul style={leaderboardListStyle}>
-        {sorted.map((item, index) => (
-          <li
-            key={item.id}
-            style={index === 0 ? leaderboardTopStyle : leaderboardItemStyle}
-          >
-            <span style={{ display: "flex", alignItems: "center", flex: 1 }}>
-              <span style={index === 0 ? rankBadgeTopStyle : rankBadgeStyle}>
-                #{index + 1}
-              </span>
-
-              {item.image && (
-                <div
-                  style={{
-                    width: "24px",
-                    height: "24px",
-                    borderRadius: "50%",
-                    backgroundImage: `url(${item.image})`,
-                    backgroundSize: "cover",
-                    marginRight: "10px",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                  }}
-                />
-              )}
-
-              {item.name}
-            </span>
-
-            <span style={{ display: "flex", alignItems: "center" }}>
-              <span style={{ color: COLORS.textSecondary, fontSize: "0.85em" }}>
-                {Math.round(item.rating)}{" "}
-                <span style={{ opacity: 0.8 }}>
-                  · {item.matches} match{item.matches === 1 ? "" : "es"}
+      <motion.ul style={leaderboardListStyle}>
+        <AnimatePresence mode="popLayout">
+          {sorted.map((item, index) => (
+            <motion.li
+              key={item.id}
+              layout
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              style={index === 0 ? leaderboardTopStyle : leaderboardItemStyle}
+            >
+              <span style={{ display: "flex", alignItems: "center", flex: 1 }}>
+                <span style={index === 0 ? rankBadgeTopStyle : rankBadgeStyle}>
+                  #{index + 1}
                 </span>
+                {item.image && (
+                  <div
+                    style={{
+                      width: "24px",
+                      height: "24px",
+                      borderRadius: "50%",
+                      backgroundImage: `url(${item.image})`,
+                      backgroundSize: "cover",
+                      marginRight: "10px",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                    }}
+                  />
+                )}
+                {item.name}
               </span>
-
-              <button
-                style={deleteBtnStyle}
-                onClick={() => onDelete(item.id)}
-                title="Delete item"
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = "#ef4444"; // red-500
-                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "#64748b";
-                  e.currentTarget.style.background = "transparent";
-                }}
-              >
-                ×
-              </button>
-            </span>
-          </li>
-        ))}
-      </ul>
+              <span style={{ display: "flex", alignItems: "center" }}>
+                <span
+                  style={{ color: COLORS.textSecondary, fontSize: "0.85em" }}
+                >
+                  {Math.round(item.rating)}{" "}
+                  <span style={{ opacity: 0.8 }}>
+                    · {item.matches} match{item.matches === 1 ? "" : "es"}
+                  </span>
+                </span>
+                <button
+                  style={deleteBtnStyle}
+                  onClick={() => onDelete(item.id)}
+                  title="Delete item"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "#ef4444"; // red-500
+                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "#64748b";
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  ×
+                </button>
+              </span>
+            </motion.li>
+          ))}
+        </AnimatePresence>
+      </motion.ul>
     </section>
   );
 }

@@ -189,8 +189,6 @@ const cardHoverStyle: React.CSSProperties = {
   transform: "translateY(-2px)",
   boxShadow: "0 22px 60px rgba(15,23,42,0.95)",
   borderColor: COLORS.accent,
-  background:
-    "linear-gradient(145deg, rgba(15,23,42,0.9), rgba(15,23,42,0.75))",
 };
 
 const subTextStyle: React.CSSProperties = {
@@ -466,12 +464,12 @@ type VotingSectionProps = {
 };
 
 const variants = {
-  center: { x: 0, y: 0, opacity: 1, scale: 1, rotate: 0 },
-  enter: { x: 0, y: 50, opacity: 0, scale: 0.9 },
-  left: { x: -250, opacity: 0, rotate: -10 },
-  right: { x: 250, opacity: 0, rotate: 10 },
-  draw: { y: 100, opacity: 0, scale: 0.8 },
-  skip: { y: -200, opacity: 0, scale: 0.8 },
+  center: { x: 0, y: 0, opacity: 1, rotate: 0 },
+  enter: { x: 0, y: 0, opacity: 0 },
+  left: { x: -250, opacity: 0 },
+  right: { x: 250, opacity: 0 },
+  draw: { y: 150, opacity: 0 },
+  skip: { y: -150, opacity: 0 },
 };
 
 function VotingSection({
@@ -480,7 +478,9 @@ function VotingSection({
   onSkip,
   exitDirection,
 }: VotingSectionProps) {
-  const [hovered, setHovered] = useState<"left" | "right" | null>(null);
+  const [hovered, setHovered] = useState<"left" | "right" | "center" | null>(
+    null
+  );
 
   const renderCardContent = (item: RankedItem) => (
     <>
@@ -507,7 +507,9 @@ function VotingSection({
       >
         {item.name}
       </div>
-      <div style={subTextStyle}>Rating {Math.round(item.rating)}</div>
+      <div style={subTextStyle}>
+        Rating {Math.round(item.rating)} · {item.matches} matches
+      </div>
     </>
   );
 
@@ -536,10 +538,6 @@ function VotingSection({
       >
         <h3 style={sectionTitleStyle}>Battle arena</h3>
       </div>
-      <p style={{ ...helperTextStyle, marginBottom: "1.2rem" }}>
-        Press <span style={kbdStyle}>A</span> <span style={kbdStyle}>D</span> to
-        vote, <span style={kbdStyle}>S</span> for draw.
-      </p>
 
       <motion.div
         key={pair[0].id + pair[1].id}
@@ -561,7 +559,7 @@ function VotingSection({
         >
           {renderCardContent(pair[0])}
           <div style={subTextStyle}>
-            Rating {Math.round(pair[0].rating)} · {pair[0].matches} matches
+            Press<span style={kbdStyle}>A</span>
           </div>
         </button>
 
@@ -571,13 +569,19 @@ function VotingSection({
             flexDirection: "column",
             gap: "0.6rem",
             alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          <button style={drawButtonStyle} onClick={() => onVote("draw")}>
+          <button
+            style={{
+              ...drawButtonStyle,
+              ...(hovered === "center" ? cardHoverStyle : null),
+            }}
+            onClick={() => onVote("draw")}
+            onMouseEnter={() => setHovered("center")}
+            onMouseLeave={() => setHovered(null)}
+          >
             Draw <span style={kbdStyle}>S</span>
-          </button>
-          <button style={skipButtonStyle} onClick={onSkip}>
-            Skip <span style={kbdStyle}>W</span>
           </button>
         </div>
 
@@ -593,10 +597,16 @@ function VotingSection({
         >
           {renderCardContent(pair[1])}
           <div style={subTextStyle}>
-            Rating {Math.round(pair[1].rating)} · {pair[1].matches} matches
+            Press<span style={kbdStyle}>D</span>
           </div>
         </button>
       </motion.div>
+      <button
+        style={{ ...skipButtonStyle, marginTop: "1.2rem", paddingLeft: 0 }}
+        onClick={onSkip}
+      >
+        Skip <span style={kbdStyle}>W</span>
+      </button>
     </section>
   );
 }

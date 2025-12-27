@@ -307,10 +307,65 @@ type VotingSectionProps = {
   pair: [RankedItem, RankedItem];
   onVote: (result: 0 | 1 | "draw") => void;
   onSkip: () => void;
+  exitDirection: ExitAnimation;
 };
 
-function VotingSection({ pair, onVote, onSkip }: VotingSectionProps) {
+function VotingSection({
+  pair,
+  onVote,
+  onSkip,
+  exitDirection,
+}: VotingSectionProps) {
   const [hovered, setHovered] = useState<"left" | "right" | null>(null);
+
+  const getContainerStyle = (): React.CSSProperties => {
+    const base: React.CSSProperties = {
+      ...cardRowStyle,
+      transition: "transform 0.25s ease-in, opacity 0.25s ease-in", // Smooth transition
+      opacity: 1,
+      transform: "translate(0, 0) scale(1)",
+    };
+
+    if (exitDirection === "left") {
+      // Swipe Left look
+      return { ...base, opacity: 0, transform: "translate(-50px, 0)" };
+    }
+    if (exitDirection === "right") {
+      // Swipe Right look
+      return { ...base, opacity: 0, transform: "translate(50px, 0)" };
+    }
+    if (exitDirection === "draw") {
+      // Sink down look
+      return {
+        ...base,
+        opacity: 0,
+        transform: "translate(0, 20px) scale(0.95)",
+      };
+    }
+    if (exitDirection === "skip") {
+      // Float up look
+      return {
+        ...base,
+        opacity: 0,
+        transform: "translate(0, -20px) scale(0.95)",
+      };
+    }
+
+    return base;
+  };
+
+  const kbdStyle: React.CSSProperties = {
+    display: "inline-block",
+    padding: "2px 6px",
+    borderRadius: "4px",
+    background: "rgba(255,255,255,0.1)",
+    border: "1px solid rgba(255,255,255,0.2)",
+    fontSize: "0.7rem",
+    marginLeft: "8px",
+    verticalAlign: "middle",
+    color: "#94a3b8",
+    fontFamily: "monospace",
+  };
 
   return (
     <section style={{ marginBottom: "2.4rem" }}>
@@ -325,11 +380,11 @@ function VotingSection({ pair, onVote, onSkip }: VotingSectionProps) {
         <h3 style={sectionTitleStyle}>Battle arena</h3>
       </div>
       <p style={{ ...helperTextStyle, marginBottom: "1.2rem" }}>
-        Choose which option you prefer or call it a draw if they are equally
-        good.
+        Press <span style={kbdStyle}>A</span> <span style={kbdStyle}>D</span> to
+        vote, <span style={kbdStyle}>S</span> for draw.
       </p>
 
-      <div style={cardRowStyle}>
+      <div style={getContainerStyle()}>
         <button
           style={{
             ...cardStyle,
@@ -355,10 +410,10 @@ function VotingSection({ pair, onVote, onSkip }: VotingSectionProps) {
           }}
         >
           <button style={drawButtonStyle} onClick={() => onVote("draw")}>
-            Call a draw
+            Draw <span style={kbdStyle}>S</span>
           </button>
           <button style={skipButtonStyle} onClick={onSkip}>
-            Skip this pair
+            Skip <span style={kbdStyle}>W</span>
           </button>
         </div>
 
@@ -429,8 +484,13 @@ function Leaderboard({ items }: LeaderboardProps) {
   );
 }
 
+type ExitAnimation = "left" | "right" | "draw" | "skip" | null;
+
 // ---- main app ----
 function App() {
+  const [newItemName, setNewItemName] = useState("");
+  const [exitDirection, setExitDirection] = useState<ExitAnimation>(null);
+
   const {
     value: items,
     setValue: setItems,
@@ -440,7 +500,6 @@ function App() {
   const [currentPair, setCurrentPair] = useState<
     [RankedItem, RankedItem] | null
   >(null);
-  const [newItemName, setNewItemName] = useState("");
 
   const tryGetNextPair = useCallback((candidateItems: RankedItem[]) => {
     if (candidateItems.length < 2) return null;
@@ -478,36 +537,80 @@ function App() {
     }
   };
 
-  const handleVote = (result: 0 | 1 | "draw") => {
-    if (!currentPair) return;
+  const handleVote = useCallback(
+    (result: 0 | 1 | "draw") => {
+      if (!currentPair || exitDirection) return;
 
-    const [item1, item2] = currentPair;
-    let matchResult: { item1: RankedItem; item2: RankedItem };
+      setExitDirection(result === 0 ? "left" : result === 1 ? "right" : "draw");
 
-    if (result === "draw") {
-      matchResult = processMatch(item1, item2, 0.5);
-    } else if (result === 0) {
-      matchResult = processMatch(item1, item2, 1);
-    } else {
-      matchResult = processMatch(item1, item2, 0);
-    }
+      setTimeout(() => {
+        const [item1, item2] = currentPair;
+        let matchResult: { item1: RankedItem; item2: RankedItem };
 
-    const updatedItems = items.map((item) => {
-      if (item.id === matchResult.item1.id) return matchResult.item1;
-      if (item.id === matchResult.item2.id) return matchResult.item2;
-      return item;
-    });
+        if (result === "draw") {
+          matchResult = processMatch(item1, item2, 0.5);
+        } else if (result === 0) {
+          matchResult = processMatch(item1, item2, 1);
+        } else {
+          matchResult = processMatch(item1, item2, 0);
+        }
 
-    setItems(updatedItems);
+        const updatedItems = items.map((item) => {
+          if (item.id === matchResult.item1.id) return matchResult.item1;
+          if (item.id === matchResult.item2.id) return matchResult.item2;
+          return item;
+        });
 
-    const nextPair = tryGetNextPair(updatedItems);
-    setCurrentPair(nextPair);
-  };
+        setItems(updatedItems);
 
-  const handleSkip = () => {
-    const nextPair = tryGetNextPair(items);
-    setCurrentPair(nextPair);
-  };
+        const nextPair = tryGetNextPair(updatedItems);
+        setCurrentPair(nextPair);
+
+        setExitDirection(null);
+      }, 250);
+    },
+    [currentPair, exitDirection, items, setItems, tryGetNextPair]
+  );
+
+  const handleSkip = useCallback(() => {
+    if (!currentPair || exitDirection) return;
+
+    setExitDirection("skip");
+
+    setTimeout(() => {
+      const nextPair = tryGetNextPair(items);
+      setCurrentPair(nextPair);
+      setExitDirection(null);
+    }, 250);
+  }, [currentPair, exitDirection, items, tryGetNextPair]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+
+      if (!currentPair) return;
+
+      switch (e.key.toLocaleLowerCase()) {
+        case "a": //left
+          handleVote(0);
+          break;
+        case "d": //right
+          handleVote(1);
+          break;
+        case "s":
+          handleVote("draw");
+          break;
+        case "w":
+          handleSkip();
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentPair, handleVote, handleSkip]);
 
   const handleReset = () => {
     if (confirm("Are you sure? This deletes all rankings.")) {
@@ -543,6 +646,7 @@ function App() {
             pair={currentPair}
             onVote={handleVote}
             onSkip={handleSkip}
+            exitDirection={exitDirection}
           />
         )}
 

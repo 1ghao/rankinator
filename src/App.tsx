@@ -439,9 +439,10 @@ function VotingSection({
 
 type LeaderboardProps = {
   items: RankedItem[];
+  onDelete: (id: string) => void;
 };
 
-function Leaderboard({ items }: LeaderboardProps) {
+function Leaderboard({ items, onDelete }: LeaderboardProps) {
   if (!items.length) {
     return (
       <section>
@@ -455,6 +456,19 @@ function Leaderboard({ items }: LeaderboardProps) {
   }
 
   const sorted = [...items].sort((a, b) => b.rating - a.rating);
+
+  const deleteBtnStyle: React.CSSProperties = {
+    background: "transparent",
+    border: "none",
+    color: "#64748b", // slate-500
+    cursor: "pointer",
+    fontSize: "1.2rem",
+    lineHeight: 1,
+    padding: "4px 8px",
+    marginLeft: "12px",
+    borderRadius: "4px",
+    transition: "color 0.2s, background 0.2s",
+  };
 
   return (
     <section>
@@ -471,11 +485,30 @@ function Leaderboard({ items }: LeaderboardProps) {
               </span>
               {item.name}
             </span>
-            <span style={{ color: COLORS.textSecondary, fontSize: "0.85em" }}>
-              {Math.round(item.rating)}{" "}
-              <span style={{ opacity: 0.8 }}>
-                · {item.matches} match{item.matches === 1 ? "" : "es"}
+
+            <span style={{ display: "flex", alignItems: "center" }}>
+              <span style={{ color: COLORS.textSecondary, fontSize: "0.85em" }}>
+                {Math.round(item.rating)}{" "}
+                <span style={{ opacity: 0.8 }}>
+                  · {item.matches} match{item.matches === 1 ? "" : "es"}
+                </span>
               </span>
+
+              <button
+                style={deleteBtnStyle}
+                onClick={() => onDelete(item.id)}
+                title="Delete item"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "#ef4444"; // red-500
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "#64748b";
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                ×
+              </button>
             </span>
           </li>
         ))}
@@ -619,6 +652,28 @@ function App() {
     }
   };
 
+  const handleDeleteItem = (id: string) => {
+    if (!confirm("Are you sure you want to delete this item?")) return;
+
+    const updatedItems = items.filter((item) => item.id !== id);
+    setItems(updatedItems);
+
+    // Check if the deleted item was currently in a match
+    if (currentPair) {
+      const [item1, item2] = currentPair;
+      if (item1.id === id || item2.id === id) {
+        const nextPair = tryGetNextPair(updatedItems);
+        setCurrentPair(nextPair);
+        setExitDirection(null);
+      }
+    } else {
+      if (updatedItems.length >= 2) {
+        const nextPair = tryGetNextPair(updatedItems);
+        if (nextPair) setCurrentPair(nextPair);
+      }
+    }
+  };
+
   return (
     <div style={pageWrapperStyle}>
       <div style={pageStyle}>
@@ -650,7 +705,7 @@ function App() {
           />
         )}
 
-        <Leaderboard items={items} />
+        <Leaderboard items={items} onDelete={handleDeleteItem} />
       </div>
     </div>
   );

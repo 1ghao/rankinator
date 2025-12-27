@@ -442,18 +442,18 @@ function App() {
   >(null);
   const [newItemName, setNewItemName] = useState("");
 
-  const generateMatch = useCallback(() => {
-    if (items.length < 2) return;
-    const nextPair = getNextMatchup(items);
-    if (nextPair) setCurrentPair(nextPair);
-  }, [items]);
+  const tryGetNextPair = useCallback((candidateItems: RankedItem[]) => {
+    if (candidateItems.length < 2) return null;
+    return getNextMatchup(candidateItems);
+  }, []);
 
   useEffect(() => {
-    if (!isHydrated) return;
-    if (items.length >= 2 && !currentPair) {
-      generateMatch();
+    if (isHydrated && items.length >= 2 && !currentPair) {
+      const nextPair = tryGetNextPair(items);
+      if (nextPair) setCurrentPair(nextPair);
     }
-  }, [items.length, currentPair, isHydrated, generateMatch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated]);
 
   const handleAddItem = () => {
     if (!newItemName.trim()) return;
@@ -467,8 +467,15 @@ function App() {
       matches: 0,
     };
 
-    setItems((prev) => [...prev, newItem]);
+    const updatedItems = [...items, newItem];
+
+    setItems(updatedItems);
     setNewItemName("");
+
+    if (!currentPair) {
+      const nextPair = tryGetNextPair(updatedItems);
+      if (nextPair) setCurrentPair(nextPair);
+    }
   };
 
   const handleVote = (result: 0 | 1 | "draw") => {
@@ -485,15 +492,21 @@ function App() {
       matchResult = processMatch(item1, item2, 0);
     }
 
-    setItems((prev) =>
-      prev.map((item) => {
-        if (item.id === matchResult.item1.id) return matchResult.item1;
-        if (item.id === matchResult.item2.id) return matchResult.item2;
-        return item;
-      })
-    );
+    const updatedItems = items.map((item) => {
+      if (item.id === matchResult.item1.id) return matchResult.item1;
+      if (item.id === matchResult.item2.id) return matchResult.item2;
+      return item;
+    });
 
-    setCurrentPair(null);
+    setItems(updatedItems);
+
+    const nextPair = tryGetNextPair(updatedItems);
+    setCurrentPair(nextPair);
+  };
+
+  const handleSkip = () => {
+    const nextPair = tryGetNextPair(items);
+    setCurrentPair(nextPair);
   };
 
   const handleReset = () => {
@@ -529,7 +542,7 @@ function App() {
           <VotingSection
             pair={currentPair}
             onVote={handleVote}
-            onSkip={generateMatch}
+            onSkip={handleSkip}
           />
         )}
 

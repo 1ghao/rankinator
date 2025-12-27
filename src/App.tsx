@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import type { RankedItem } from "./types";
 import { processMatch } from "./utils/rankingSystem";
 import { getNextMatchup } from "./utils/matchmaking";
+import { compressImages } from "./utils/imageUtils";
 
 // ---- shared hooks ----
 function useLocalStorageState<T>(key: string, initialValue: T) {
@@ -279,24 +280,109 @@ const emptyStateStyle: React.CSSProperties = {
 
 // ---- subcomponents ----
 type InputSectionProps = {
-  value: string;
-  onChange: (v: string) => void;
+  textValue: string;
+  onTextChange: (v: string) => void;
+  imageValue: string | null;
+  onImageChange: (v: string | null) => void;
   onSubmit: () => void;
 };
 
-function InputSection({ value, onChange, onSubmit }: InputSectionProps) {
-  const disabled = !value.trim();
+function InputSection({
+  textValue,
+  onTextChange,
+  imageValue,
+  onImageChange,
+  onSubmit,
+}: InputSectionProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const disabled = !textValue.trim();
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      try {
+        const compressed = await compressImages(e.target.files[0]);
+        onImageChange(compressed);
+      } catch (err) {
+        console.error("Image processing failed", err);
+      }
+    }
+  };
 
   return (
     <>
       <div style={inputRowStyle}>
         <input
-          style={inputStyle}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Add item to rank"
-          onKeyDown={(e) => e.key === "Enter" && !disabled && onSubmit()}
+          type="file"
+          accept="image/*"
+          ref={fileInputRef}
+          style={{ display: "none" }}
+          onChange={handleFileSelect}
         />
+        <div style={{ position: "relative", flex: 1, display: "flex" }}>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              position: "absolute",
+              left: "6px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: "32px",
+              height: "32px",
+              border: "none",
+              borderRadius: "50%",
+              cursor: "pointer",
+              background: imageValue
+                ? `url(${imageValue}) center/cover`
+                : "rgba(255,255,255,0.1)",
+              color: imageValue ? "transparent" : "#94a3b8",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 0,
+              fontSize: "1.2rem",
+              textAlign: "center",
+              lineHeight: 0,
+              transition: "background 0.2s, color 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              if (!imageValue) {
+                e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+                e.currentTarget.style.color = "#e2e8f0";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!imageValue) {
+                e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+                e.currentTarget.style.color = "#94a3b8";
+              }
+            }}
+            title="Add image"
+          >
+            {!imageValue && (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            )}
+          </button>
+
+          <input
+            style={{ ...inputStyle, paddingLeft: "48px" }}
+            value={textValue}
+            onChange={(e) => onTextChange(e.target.value)}
+            placeholder="Add item name..."
+            onKeyDown={(e) => e.key === "Enter" && !disabled && onSubmit()}
+          />
+        </div>
         <button
           onClick={onSubmit}
           disabled={disabled}
@@ -309,6 +395,31 @@ function InputSection({ value, onChange, onSubmit }: InputSectionProps) {
           + Add
         </button>
       </div>
+      {imageValue ? (
+        <div
+          style={{
+            ...helperTextStyle,
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+          }}
+        >
+          <span style={{ color: "#38bdf8" }}>✓ Image attached</span>
+          <button
+            onClick={() => onImageChange(null)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#f97373",
+              cursor: "pointer",
+              fontSize: "0.8rem",
+              textDecoration: "underline",
+            }}
+          >
+            Remove image
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -364,6 +475,34 @@ function VotingSection({
     return base;
   };
 
+  const renderCardContent = (item: RankedItem) => (
+    <>
+      {item.image ? (
+        <div
+          style={{
+            width: "100%",
+            height: "140px",
+            marginBottom: "1rem",
+            borderRadius: "12px",
+            background: `url(${item.image}) center center / cover no-repeat`,
+            boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)",
+          }}
+        />
+      ) : null}
+
+      <div
+        style={{
+          fontWeight: "bold",
+          fontSize: "1.3rem",
+          marginBottom: "0.5rem",
+        }}
+      >
+        {item.name}
+      </div>
+      <div style={subTextStyle}>Rating {Math.round(item.rating)}</div>
+    </>
+  );
+
   const kbdStyle: React.CSSProperties = {
     display: "inline-block",
     padding: "2px 6px",
@@ -405,7 +544,7 @@ function VotingSection({
           onMouseEnter={() => setHovered("left")}
           onMouseLeave={() => setHovered(null)}
         >
-          {pair[0].name}
+          {renderCardContent(pair[0])}
           <div style={subTextStyle}>
             Rating {Math.round(pair[0].rating)} · {pair[0].matches} matches
           </div>
@@ -437,7 +576,7 @@ function VotingSection({
           onMouseEnter={() => setHovered("right")}
           onMouseLeave={() => setHovered(null)}
         >
-          {pair[1].name}
+          {renderCardContent(pair[1])}
           <div style={subTextStyle}>
             Rating {Math.round(pair[1].rating)} · {pair[1].matches} matches
           </div>
@@ -489,10 +628,25 @@ function Leaderboard({ items, onDelete }: LeaderboardProps) {
             key={item.id}
             style={index === 0 ? leaderboardTopStyle : leaderboardItemStyle}
           >
-            <span style={{ display: "flex", alignItems: "center" }}>
+            <span style={{ display: "flex", alignItems: "center", flex: 1 }}>
               <span style={index === 0 ? rankBadgeTopStyle : rankBadgeStyle}>
                 #{index + 1}
               </span>
+
+              {item.image && (
+                <div
+                  style={{
+                    width: "24px",
+                    height: "24px",
+                    borderRadius: "50%",
+                    backgroundImage: `url(${item.image})`,
+                    backgroundSize: "cover",
+                    marginRight: "10px",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                  }}
+                />
+              )}
+
               {item.name}
             </span>
 
@@ -532,6 +686,7 @@ type ExitAnimation = "left" | "right" | "draw" | "skip" | null;
 // ---- main app ----
 function App() {
   const [newItemName, setNewItemName] = useState("");
+  const [newImageName, setNewImageName] = useState<string | null>(null);
   const [exitDirection, setExitDirection] = useState<ExitAnimation>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -627,6 +782,7 @@ function App() {
     const newItem: RankedItem = {
       id: uuidv4(),
       name: newItemName.trim(),
+      image: newImageName || undefined,
       rating: 1500,
       rd: 350,
       vol: 0.06,
@@ -637,6 +793,7 @@ function App() {
 
     setItems(updatedItems);
     setNewItemName("");
+    setNewImageName(null);
 
     if (!currentPair) {
       const nextPair = tryGetNextPair(updatedItems);
@@ -804,8 +961,10 @@ function App() {
         </header>
 
         <InputSection
-          value={newItemName}
-          onChange={setNewItemName}
+          textValue={newItemName}
+          onTextChange={setNewItemName}
+          imageValue={newImageName}
+          onImageChange={setNewImageName}
           onSubmit={handleAddItem}
         />
 

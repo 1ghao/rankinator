@@ -736,6 +736,7 @@ function App() {
   const [newImageName, setNewImageName] = useState<string | null>(null);
   const [exitDirection, setExitDirection] = useState<ExitAnimation>(null);
   const [editingItem, setEditingItem] = useState<RankedItem | null>(null);
+  const [history, setHistory] = useState<RankedItem[][]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -804,6 +805,7 @@ function App() {
             `Replace current list with ${parsed.length} items from backup?`
           )
         ) {
+          saveHistory();
           setItems(parsed);
 
           setCurrentPair(null);
@@ -824,30 +826,26 @@ function App() {
     e.target.value = "";
   };
 
-  const handleAddItem = () => {
-    if (!newItemName.trim()) return;
+  const saveHistory = useCallback(() => {
+    setHistory((prev) => [...prev, items].slice(-15));
+  }, [items]);
 
-    const newItem: RankedItem = {
-      id: uuidv4(),
-      name: newItemName.trim(),
-      image: newImageName || undefined,
-      rating: 1500,
-      rd: 350,
-      vol: 0.06,
-      matches: 0,
-    };
+  const handleUndo = useCallback(() => {
+    if (history.length === 0) return;
 
-    const updatedItems = [...items, newItem];
+    const previousState = history.at(-1);
+    if (!previousState) return;
 
-    setItems(updatedItems);
-    setNewItemName("");
-    setNewImageName(null);
+    setHistory((prev) => prev.slice(0, -1));
 
-    if (!currentPair) {
-      const nextPair = tryGetNextPair(updatedItems);
-      if (nextPair) setCurrentPair(nextPair);
-    }
-  };
+    setItems(previousState);
+
+    setCurrentPair(null);
+    setExitDirection(null);
+
+    const nextPair = tryGetNextPair(previousState);
+    setCurrentPair(nextPair);
+  }, [history, setItems, tryGetNextPair]);
 
   const handleVote = useCallback(
     (result: 0 | 1 | "draw") => {
@@ -856,6 +854,7 @@ function App() {
       setExitDirection(result === 0 ? "left" : result === 1 ? "right" : "draw");
 
       setTimeout(() => {
+        saveHistory();
         const [item1, item2] = currentPair;
         let matchResult: { item1: RankedItem; item2: RankedItem };
 
@@ -881,7 +880,7 @@ function App() {
         setExitDirection(null);
       }, 400);
     },
-    [currentPair, exitDirection, items, setItems, tryGetNextPair]
+    [currentPair, exitDirection, items, saveHistory, setItems, tryGetNextPair]
   );
 
   const handleSkip = useCallback(() => {
@@ -898,6 +897,14 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Undo (Ctrl + Z)
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
+      // Hotkeys for voting (WASD)
+
       if (e.target instanceof HTMLInputElement) return;
 
       if (!currentPair) return;
@@ -909,10 +916,10 @@ function App() {
         case "d": //right
           handleVote(1);
           break;
-        case "s":
+        case "s": //down
           handleVote("draw");
           break;
-        case "w":
+        case "w": //up
           handleSkip();
           break;
         default:
@@ -922,17 +929,47 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentPair, handleVote, handleSkip]);
+  }, [currentPair, handleVote, handleSkip, handleUndo]);
 
   const handleReset = () => {
     if (confirm("Are you sure? This deletes all rankings.")) {
+      saveHistory();
       reset();
       setCurrentPair(null);
     }
   };
 
+  const handleAddItem = () => {
+    if (!newItemName.trim()) return;
+
+    saveHistory();
+
+    const newItem: RankedItem = {
+      id: uuidv4(),
+      name: newItemName.trim(),
+      image: newImageName || undefined,
+      rating: 1500,
+      rd: 350,
+      vol: 0.06,
+      matches: 0,
+    };
+
+    const updatedItems = [...items, newItem];
+
+    setItems(updatedItems);
+    setNewItemName("");
+    setNewImageName(null);
+
+    if (!currentPair) {
+      const nextPair = tryGetNextPair(updatedItems);
+      if (nextPair) setCurrentPair(nextPair);
+    }
+  };
+
   const handleDeleteItem = (id: string) => {
     if (!confirm("Are you sure you want to delete this item?")) return;
+
+    saveHistory();
 
     const updatedItems = items.filter((item) => item.id !== id);
     setItems(updatedItems);
@@ -954,6 +991,7 @@ function App() {
   };
 
   const handleUpdateItem = (id: string, newName: string, newImage?: string) => {
+    saveHistory();
     setItems((prev) =>
       prev.map((item) => {
         if (item.id === id) {
@@ -984,6 +1022,19 @@ function App() {
               style={{ display: "none" }}
               onChange={handleFileUpload}
             />
+
+            <button
+              onClick={handleUndo}
+              disabled={history.length === 0}
+              style={{
+                ...secondaryButtonStyle,
+                opacity: history.length === 0 ? 0.3 : 1,
+                cursor: history.length === 0 ? "not-allowed" : "pointer",
+              }}
+              title="Undo last action (Ctrl+Z)"
+            >
+              Undo
+            </button>
 
             <button
               onClick={handleExport}

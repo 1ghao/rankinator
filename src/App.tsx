@@ -6,6 +6,7 @@ import type { RankedItem } from "./types";
 import { processMatch } from "./utils/rankingSystem";
 import { getNextMatchup } from "./utils/matchmaking";
 import { cropAndCompressImage as cropAndCompressImage } from "./utils/imageUtils";
+import { EditModal } from "./components/EditModal";
 
 // ---- shared hooks ----
 function useLocalStorageState<T>(key: string, initialValue: T) {
@@ -603,9 +604,10 @@ function VotingSection({
 type LeaderboardProps = {
   items: RankedItem[];
   onDelete: (id: string) => void;
+  onEdit: (item: RankedItem) => void;
 };
 
-function Leaderboard({ items, onDelete }: LeaderboardProps) {
+function Leaderboard({ items, onDelete, onEdit }: LeaderboardProps) {
   if (!items.length) {
     return (
       <section>
@@ -678,6 +680,22 @@ function Leaderboard({ items, onDelete }: LeaderboardProps) {
                 </span>
                 <button
                   style={deleteBtnStyle}
+                  onClick={() => onEdit(item)}
+                  title="Edit item"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "#38bdf8";
+                    e.currentTarget.style.background =
+                      "rgba(56, 189, 248, 0.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "#64748b";
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  ✎
+                </button>
+                <button
+                  style={deleteBtnStyle}
                   onClick={() => onDelete(item.id)}
                   title="Delete item"
                   onMouseEnter={(e) => {
@@ -707,6 +725,7 @@ function App() {
   const [newItemName, setNewItemName] = useState("");
   const [newImageName, setNewImageName] = useState<string | null>(null);
   const [exitDirection, setExitDirection] = useState<ExitAnimation>(null);
+  const [editingItem, setEditingItem] = useState<RankedItem | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -924,6 +943,18 @@ function App() {
     }
   };
 
+  const handleUpdateItem = (id: string, newName: string, newImage?: string) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          return { ...item, name: newName, image: newImage };
+        }
+        return item;
+      })
+    );
+    setEditingItem(null);
+  };
+
   return (
     <div style={pageWrapperStyle}>
       <div style={pageStyle}>
@@ -996,8 +1027,19 @@ function App() {
           />
         )}
 
-        <Leaderboard items={items} onDelete={handleDeleteItem} />
+        <Leaderboard
+          items={items}
+          onDelete={handleDeleteItem}
+          onEdit={setEditingItem}
+        />
       </div>
+      {editingItem && (
+        <EditModal
+          item={editingItem}
+          onSave={handleUpdateItem}
+          onCancel={() => setEditingItem(null)}
+        />
+      )}
     </div>
   );
 }

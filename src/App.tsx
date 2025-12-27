@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import type { RankedItem } from "./types";
 import { processMatch } from "./utils/rankingSystem";
@@ -112,6 +112,16 @@ const primaryButtonStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: "0.35rem",
+};
+
+const secondaryButtonStyle: React.CSSProperties = {
+  ...primaryButtonStyle,
+  background: "transparent",
+  border: "1px solid rgba(148, 163, 184, 0.4)",
+  boxShadow: "none",
+  color: COLORS.textSecondary,
+  fontSize: "0.85rem",
+  padding: "0.5rem 1rem",
 };
 
 const dangerButtonStyle: React.CSSProperties = {
@@ -524,6 +534,8 @@ function App() {
   const [newItemName, setNewItemName] = useState("");
   const [exitDirection, setExitDirection] = useState<ExitAnimation>(null);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const {
     value: items,
     setValue: setItems,
@@ -546,6 +558,68 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHydrated]);
+
+  const handleExport = () => {
+    const dataStr = JSON.stringify(items, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    // Create a temporary link and trigger download
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `rankinator-backup-${new Date()
+      .toISOString()
+      .slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = event.target?.result as string;
+        const parsed = JSON.parse(json);
+
+        if (!Array.isArray(parsed)) throw new Error("Not an array");
+        if (parsed.length > 0 && (!parsed[0].id || !parsed[0].name)) {
+          throw new Error("Invalid data structure");
+        }
+
+        if (
+          confirm(
+            `Replace current list with ${parsed.length} items from backup?`
+          )
+        ) {
+          setItems(parsed);
+
+          setCurrentPair(null);
+          setExitDirection(null);
+
+          setTimeout(() => {
+            const nextPair = tryGetNextPair(parsed);
+            if (nextPair) setCurrentPair(nextPair);
+          }, 0);
+        }
+      } catch (err) {
+        alert("Failed to load file. It might be corrupt or the wrong format.");
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+
+    e.target.value = "";
+  };
 
   const handleAddItem = () => {
     if (!newItemName.trim()) return;
@@ -685,9 +759,48 @@ function App() {
               leaderboard.
             </p>
           </div>
-          <button onClick={handleReset} style={dangerButtonStyle}>
-            Reset all
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input
+              type="file"
+              accept=".json"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleFileUpload}
+            />
+
+            <button
+              onClick={handleExport}
+              style={secondaryButtonStyle}
+              title="Save backup"
+            >
+              Export
+            </button>
+
+            <button
+              onClick={handleImportClick}
+              style={secondaryButtonStyle}
+              title="Load backup"
+            >
+              Import
+            </button>
+
+            <div
+              style={{
+                width: 1,
+                height: 20,
+                background: "rgba(148,163,184,0.3)",
+                margin: "0 4px",
+              }}
+            />
+
+            <button
+              onClick={handleReset}
+              style={dangerButtonStyle}
+              title="Delete everything"
+            >
+              Reset
+            </button>
+          </div>
         </header>
 
         <InputSection

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useDropzone } from "react-dropzone";
 import { v4 as uuidv4 } from "uuid";
 import type { RankedItem } from "./types";
 import { processMatch } from "./utils/rankingSystem";
 import { getNextMatchup } from "./utils/matchmaking";
-import { cropAndCompressImages } from "./utils/imageUtils";
+import { cropAndCompressImage as cropAndCompressImage } from "./utils/imageUtils";
 
 // ---- shared hooks ----
 function useLocalStorageState<T>(key: string, initialValue: T) {
@@ -297,26 +298,53 @@ function InputSection({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const disabled = !textValue.trim();
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      try {
-        const compressed = await cropAndCompressImages(e.target.files[0]);
-        onImageChange(compressed);
-      } catch (err) {
-        console.error("Image processing failed", err);
+  const processFile = async (file: File) => {
+    try {
+      const compressed = await cropAndCompressImage(file);
+      onImageChange(compressed);
+    } catch (err) {
+      console.error("Image processing failed", err);
+    }
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: (acceptedFiles) => {
+      if (acceptedFiles.length > 0) {
+        processFile(acceptedFiles[0]);
       }
+    },
+    accept: {
+      "image/*": [],
+    },
+    multiple: false,
+    noClick: true,
+  });
+
+  const handleManualFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processFile(e.target.files[0]);
     }
   };
 
   return (
-    <>
-      <div style={inputRowStyle}>
+    <div style={{ marginBottom: "1.75rem" }}>
+      <div
+        {...getRootProps()}
+        style={{
+          ...inputRowStyle,
+          border: isDragActive ? "2px dashed #38bdf8" : "2px solid transparent",
+          borderRadius: "999px",
+          background: isDragActive ? "rgba(56, 189, 248, 0.1)" : "transparent",
+          transition: "all 0.2s ease",
+        }}
+      >
+        <input {...getInputProps()} />
         <input
           type="file"
           accept="image/*"
           ref={fileInputRef}
           style={{ display: "none" }}
-          onChange={handleFileSelect}
+          onChange={handleManualFileSelect}
         />
         <div style={{ position: "relative", flex: 1, display: "flex" }}>
           <button
@@ -343,6 +371,7 @@ function InputSection({
               textAlign: "center",
               lineHeight: 0,
               transition: "background 0.2s, color 0.2s",
+              zIndex: 10,
             }}
             onMouseEnter={(e) => {
               if (!imageValue) {
@@ -356,7 +385,7 @@ function InputSection({
                 e.currentTarget.style.color = "#94a3b8";
               }
             }}
-            title="Add image"
+            title="Add image (or drag and drop)"
           >
             {!imageValue && (
               <svg
@@ -379,7 +408,9 @@ function InputSection({
             style={{ ...inputStyle, paddingLeft: "48px" }}
             value={textValue}
             onChange={(e) => onTextChange(e.target.value)}
-            placeholder="Add item name..."
+            placeholder={
+              isDragActive ? "Drop image here..." : "Add item name..."
+            }
             onKeyDown={(e) => e.key === "Enter" && !disabled && onSubmit()}
           />
         </div>
@@ -390,6 +421,7 @@ function InputSection({
             ...primaryButtonStyle,
             opacity: disabled ? 0.5 : 1,
             cursor: disabled ? "not-allowed" : "pointer",
+            marginLeft: "0.75rem",
           }}
         >
           + Add
@@ -420,7 +452,7 @@ function InputSection({
           </button>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 

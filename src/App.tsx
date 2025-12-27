@@ -464,6 +464,15 @@ type VotingSectionProps = {
   exitDirection: ExitAnimation;
 };
 
+const variants = {
+  center: { x: 0, y: 0, opacity: 1, scale: 1, rotate: 0 },
+  enter: { x: 0, y: 50, opacity: 0, scale: 0.9 },
+  left: { x: -250, opacity: 0, rotate: -10 },
+  right: { x: 250, opacity: 0, rotate: 10 },
+  draw: { y: 100, opacity: 0, scale: 0.8 },
+  skip: { y: -200, opacity: 0, scale: 0.8 },
+};
+
 function VotingSection({
   pair,
   onVote,
@@ -471,42 +480,6 @@ function VotingSection({
   exitDirection,
 }: VotingSectionProps) {
   const [hovered, setHovered] = useState<"left" | "right" | null>(null);
-
-  const getContainerStyle = (): React.CSSProperties => {
-    const base: React.CSSProperties = {
-      ...cardRowStyle,
-      transition: "transform 0.25s ease-in, opacity 0.25s ease-in", // Smooth transition
-      opacity: 1,
-      transform: "translate(0, 0) scale(1)",
-    };
-
-    if (exitDirection === "left") {
-      // Swipe Left look
-      return { ...base, opacity: 0, transform: "translate(-50px, 0)" };
-    }
-    if (exitDirection === "right") {
-      // Swipe Right look
-      return { ...base, opacity: 0, transform: "translate(50px, 0)" };
-    }
-    if (exitDirection === "draw") {
-      // Sink down look
-      return {
-        ...base,
-        opacity: 0,
-        transform: "translate(0, 20px) scale(0.95)",
-      };
-    }
-    if (exitDirection === "skip") {
-      // Float up look
-      return {
-        ...base,
-        opacity: 0,
-        transform: "translate(0, -20px) scale(0.95)",
-      };
-    }
-
-    return base;
-  };
 
   const renderCardContent = (item: RankedItem) => (
     <>
@@ -567,7 +540,14 @@ function VotingSection({
         vote, <span style={kbdStyle}>S</span> for draw.
       </p>
 
-      <div style={getContainerStyle()}>
+      <motion.div
+        key={pair[0].id + pair[1].id}
+        variants={variants}
+        initial="enter"
+        animate={exitDirection || "center"}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        style={cardRowStyle}
+      >
         <button
           style={{
             ...cardStyle,
@@ -615,7 +595,7 @@ function VotingSection({
             Rating {Math.round(pair[1].rating)} · {pair[1].matches} matches
           </div>
         </button>
-      </div>
+      </motion.div>
     </section>
   );
 }
@@ -870,7 +850,7 @@ function App() {
         setCurrentPair(nextPair);
 
         setExitDirection(null);
-      }, 250);
+      }, 400);
     },
     [currentPair, exitDirection, items, setItems, tryGetNextPair]
   );
